@@ -1,155 +1,108 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const mongoose =require("mongoose");
+const mongoose = require("mongoose");
 const _ = require("lodash");
 
 const app = express();
 
-app.set('view engine', 'ejs');
-
-app.use(bodyParser.urlencoded({extended: true}));
+app.set("view engine", "ejs");
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-mongoose.connect("mongodb+srv://pisinside:harshwardhan@cluster0.foym1.mongodb.net/todolistDB?retryWrites=true&w=majority", {useNewUrlParser: true, useUnifiedTopology: true});
+mongoose.connect("mongodb+srv://pisinside:harshwardhan@cluster0.foym1.mongodb.net/todolistDB?retryWrites=true&w=majority", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 
-//// ITEM SCHEMA////
-const itemsSchema = {
-  name: String
-};
-
+//// ITEM SCHEMA ////
+const itemsSchema = { name: String };
 const Item = mongoose.model("Item", itemsSchema);
 
-////DEFAULT ITEMS////
-const item1 = new Item ({
-    name: "Type a new item below"
-  });
-
-const item2 = new Item ({
-    name: "Click the + button to add the new item"
-  });
-
-const item3 = new Item ({
-    name: "<--Click this to delete an item"
-  });
-
-
+//// DEFAULT ITEMS ////
+const item1 = new Item({ name: "Type a new item below" });
+const item2 = new Item({ name: "Click the + button to add the new item" });
+const item3 = new Item({ name: "<--Click this to delete an item" });
 const defaultItems = [item1, item2, item3];
 
-////CUSTOM LIST ITEM SCHEMA////
-const listSchema = {
-  name: String,
-  items: [itemsSchema]
-};
-
+//// CUSTOM LIST ITEM SCHEMA ////
+const listSchema = { name: String, items: [itemsSchema] };
 const List = mongoose.model("List", listSchema);
 
-//////HOME ROUTE/////
-app.get("/", function(req, res) {
-
-  Item.find({}, function(err, foundItems) {
-
+////// HOME ROUTE //////
+app.get("/", async (req, res) => {
+  try {
+    const foundItems = await Item.find({});
     if (foundItems.length === 0) {
-        Item.insertMany(defaultItems, function(err) {
-          if (err) {
-            console.log(err); 
-          } else {
-            console.log("Successfully saved default items to DB");
-          }
-        });
-      res.redirect("/");
+      await Item.insertMany(defaultItems);
+      console.log("Successfully saved default items to DB");
+      return res.redirect("/");
     } else {
-      res.render("list", {listTitle: "Today", newListItems: foundItems});
+      res.render("list", { listTitle: "Today", newListItems: foundItems });
     }
-  })
-
+  } catch (err) {
+    console.error(err);
+  }
 });
 
-/////ADD NEW ITEM/////
-app.post("/", function(req, res){
-
+///// ADD NEW ITEM /////
+app.post("/", async (req, res) => {
   const itemName = req.body.newItem;
   const listName = req.body.list;
-
-  const item = new Item({
-    name: itemName
-  });
+  const item = new Item({ name: itemName });
 
   if (itemName !== "") {
-
     if (listName === "Today") {
-     item.save();
-     res.redirect("/");
-
-   }  else {
-     ///// for custom list////
-     List.findOne({name: listName}, function(err, foundList) {
-        foundList.items.push(item);
-        foundList.save();
-        res.redirect("/" + listName);
-      })
-   }
+      await item.save();
+      res.redirect("/");
+    } else {
+      const foundList = await List.findOne({ name: listName });
+      foundList.items.push(item);
+      await foundList.save();
+      res.redirect("/" + listName);
+    }
   }
-
 });
 
-/////CUSTOM LIST//////
-app.get("/:customListName", function(req, res) {
-
-    const customListName = _.capitalize(req.params.customListName);
-
-    List.findOne({name: customListName}, function(err, foundList) {
-      if (!err) {
-        if (!foundList) {
-
-         ////create a new list////
-          const list = new List ({
-              name: customListName,
-              items: defaultItems
-            })
-
-            list.save();
-            res.redirect("/" + customListName);
-        } else {
-
-        /////Show an existing list////       
-        res.render("list", {listTitle: foundList.name, newListItems: foundList.items});
-        }
-
-      }
-    })
+///// CUSTOM LIST ROUTE /////
+app.get("/:customListName", async (req, res) => {
+  const customListName = _.capitalize(req.params.customListName);
+  try {
+    let foundList = await List.findOne({ name: customListName });
+    if (!foundList) {
+      foundList = new List({ name: customListName, items: defaultItems });
+      await foundList.save();
+      return res.redirect("/" + customListName);
+    } else {
+      res.render("list", { listTitle: foundList.name, newListItems: foundList.items });
+    }
+  } catch (err) {
+    console.error(err);
+  }
 });
 
-
-////DELETE ITEM/////
-app.post("/delete", function(req, res) {
-  
+//// DELETE ITEM ////
+app.post("/delete", async (req, res) => {
   const checkedItemId = req.body.checkbox;
   const listName = req.body.listName;
-
-  if (listName === "Today") {
-
-    Item.findByIdAndRemove(checkedItemId, function(err) {
-      if (!err) {
-        console.log("Successfully deleted item");
-        res.redirect("/");
-      }
-    });
-  } else {
-    List.findOneAndUpdate({name: listName}, {$pull: {items: {_id: checkedItemId}}}, function(err, foundList) {
-       if(!err) {
-         res.redirect("/" + listName);
-       }
-    }) 
+  try {
+    if (listName === "Today") {
+      // Replaced findByIdAndRemove with findByIdAndDelete
+      await Item.findByIdAndDelete(checkedItemId);
+      console.log("Successfully deleted item");
+      res.redirect("/");
+    } else {
+      await List.findOneAndUpdate(
+        { name: listName },
+        { $pull: { items: { _id: checkedItemId } } }
+      );
+      res.redirect("/" + listName);
+    }
+  } catch (err) {
+    console.error(err);
   }
-
-    
 });
 
-let port = process.env.PORT;
-if (port == null || port == "") {
-  port = 3000;
-}
-
-app.listen(port, function() {
+let port = process.env.PORT || 3000;
+app.listen(port, () => {
   console.log("Server has started successfully!");
 });
