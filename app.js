@@ -2,36 +2,36 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const _ = require("lodash");
-
-const app = express();
 const dotenv = require("dotenv");
 
+// Load environment variables from .env file
 dotenv.config();
+
+const app = express();
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-mongoose.connect(process.env.MONGO_URL, {
+// Use the MONGO_URI environment variable
+mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
 
-//// ITEM SCHEMA ////
+// Schemas and models
 const itemsSchema = { name: String };
 const Item = mongoose.model("Item", itemsSchema);
 
-//// DEFAULT ITEMS ////
 const item1 = new Item({ name: "Type a new item below" });
 const item2 = new Item({ name: "Click the + button to add the new item" });
 const item3 = new Item({ name: "<--Click this to delete an item" });
 const defaultItems = [item1, item2, item3];
 
-//// CUSTOM LIST ITEM SCHEMA ////
 const listSchema = { name: String, items: [itemsSchema] };
 const List = mongoose.model("List", listSchema);
 
-////// HOME ROUTE //////
+// HOME ROUTE
 app.get("/", async (req, res) => {
   try {
     const foundItems = await Item.find({});
@@ -44,10 +44,11 @@ app.get("/", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
-///// ADD NEW ITEM /////
+// ADD NEW ITEM
 app.post("/", async (req, res) => {
   const itemName = req.body.newItem;
   const listName = req.body.list;
@@ -66,7 +67,7 @@ app.post("/", async (req, res) => {
   }
 });
 
-///// CUSTOM LIST ROUTE /////
+// CUSTOM LIST ROUTE
 app.get("/:customListName", async (req, res) => {
   const customListName = _.capitalize(req.params.customListName);
   try {
@@ -80,16 +81,16 @@ app.get("/:customListName", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
-//// DELETE ITEM ////
+// DELETE ITEM
 app.post("/delete", async (req, res) => {
   const checkedItemId = req.body.checkbox;
   const listName = req.body.listName;
   try {
     if (listName === "Today") {
-      // Replaced findByIdAndRemove with findByIdAndDelete
       await Item.findByIdAndDelete(checkedItemId);
       console.log("Successfully deleted item");
       res.redirect("/");
@@ -102,10 +103,9 @@ app.post("/delete", async (req, res) => {
     }
   } catch (err) {
     console.error(err);
+    res.status(500).send("Internal Server Error");
   }
 });
 
-let port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log("Server has started successfully!");
-});
+// Export the app instead of starting the server manually
+module.exports = app;
