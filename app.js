@@ -8,13 +8,14 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const app = express();
+const port = process.env.PORT;
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
 // Use the MONGO_URI environment variable
-mongoose.connect(process.env.MONGO_URI, {
+mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
@@ -105,6 +106,11 @@ app.post("/delete", async (req, res) => {
     console.error(err);
     res.status(500).send("Internal Server Error");
   }
+});
+
+// DO NOT DO THIS ON VERCEL
+app.listen(port, () => {
+  console.log("Server has started successfully!");
 });
 
 // Export the app instead of starting the server manually
