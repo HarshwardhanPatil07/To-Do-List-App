@@ -4,12 +4,15 @@ const mongoose = require("mongoose");
 const _ = require("lodash");
 
 const app = express();
+const dotenv = require("dotenv");
+
+dotenv.config();
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-mongoose.connect("mongodb+srv://pisinside:harshwardhan@cluster0.foym1.mongodb.net/todolistDB?retryWrites=true&w=majority", {
+mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
